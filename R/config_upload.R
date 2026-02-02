@@ -121,3 +121,25 @@ print_upload_config <- function() {
   cat("Tipos permitidos:", paste(FILE_TYPE_WHITELIST, collapse = ", "), "\n")
   cat("===============================\n\n")
 }
+
+# ===========================
+# ML Detection Settings
+# ===========================
+
+# Habilitar detecção ML (complementar ao regex)
+ENABLE_ML_DETECTION <- as.logical(
+  Sys.getenv("ENABLE_ML_DETECTION", unset = "true")
+)
+
+# Threshold para ML detection (0-100, quanto maior, mais conservador)
+ML_DETECTION_THRESHOLD <- as.numeric(
+  Sys.getenv("ML_DETECTION_THRESHOLD", unset = "40")
+)
+
+# Modo de ML: "warn" (apenas avisar) ou "block" (bloquear)
+ML_DETECTION_MODE <- Sys.getenv("ML_DETECTION_MODE", unset = "warn")
+
+# Habilitar logging de ML detection
+ENABLE_ML_LOGGING <- as.logical(
+  Sys.getenv("ENABLE_ML_LOGGING", unset = "true")
+)

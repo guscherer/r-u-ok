@@ -25,6 +25,8 @@ source("R/cleanup_scheduler.R")
 source("R/input_validation.R")
 # Carrega funções de sandbox seguro (Task 016)
 source("R/code_sandbox.R")
+# Carrega funções de detecção ML (ML Detection)
+source("R/ml_detection.R")
 
 # Configurar limite de tamanho de requisição do Shiny
 shiny::shinyOptions(
@@ -401,6 +403,40 @@ server <- function(input, output, session) {
           duration = 3
         )
       }
+    }
+    
+    # ========== ML DETECTION: VALIDAÇÃO SEMÂNTICA ==========
+    # Detecção ML complementar (threshold: 40 para ser mais conservadora)
+    ml_result <- predict_injection(
+      input$prompt,
+      threshold = 40  # Mais alto que regex para evitar falsos positivos
+    )
+    
+    # Log ML detection para análise
+    log_ml_detection(
+      session$ns(NULL),
+      ml_result,
+      input$prompt
+    )
+    
+    # Se ML detectar alto risco, avisar mas não bloquear
+    if (ml_result$is_injection && ml_result$risk_level == "high") {
+      shiny::showNotification(
+        paste0("🤖 ML Detection: Risco ", ml_result$risk_level, 
+               " (score: ", round(ml_result$score), 
+               ") | Features: ", paste(ml_result$triggered_features, collapse = ", ")),
+        type = "warning",
+        duration = 5
+      )
+      
+      log_security_event(
+        session$ns(NULL),
+        "ml_high_risk_detected",
+        "warning",
+        paste0("ML Score: ", ml_result$score, " | Confidence: ", 
+               round(ml_result$confidence, 2), " | Features: ",
+               paste(ml_result$triggered_features, collapse = ", "))
+      )
     }
     
     # Usar prompt sanitizado
