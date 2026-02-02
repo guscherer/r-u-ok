@@ -2,38 +2,38 @@ Package: ruok
 Title: R U OK - AI-Powered Data Analysis Assistant
 Version: 0.1.0
 Description: A Shiny application that transforms natural language prompts (Portuguese)
-    into executable R code for data analysis. The app integrates with AI models
-    (Zhipu GLM-4) to generate tidyverse/dplyr code, enabling spreadsheet users to
-    perform advanced data transformations, aggregations, and joins without programming
-    knowledge. Features include multi-file upload (CSV/Excel), interactive results
-    display, code transparency, and downloadable outputs.
+into executable R code for data analysis. The app integrates with AI models
+(Zhipu GLM-4) to generate tidyverse/dplyr code, enabling spreadsheet users to
+perform advanced data transformations, aggregations, and joins without programming
+knowledge. Features include multi-file upload (CSV/Excel), interactive results
+display, code transparency, and downloadable outputs.
 Authors@R:
-    person(given = "Gustavo",
-           family = "Scherer",
-           role = c("aut", "cre"),
-           email = "guscherer@example.com")
+person(given = "Gustavo",
+family = "Scherer",
+role = c("aut", "cre"),
+email = "guscherer@example.com")
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends:
-    R (>= 4.0.0)
+R (>= 4.0.0)
 Imports:
-    shiny (>= 1.7.0),
-    DT (>= 0.20.0),
-    httr2 (>= 1.0.0),
-    readxl (>= 1.4.0),
-    writexl (>= 1.4.0),
-    shinythemes (>= 1.2.0),
-    dplyr (>= 1.1.0),
-    tidyr (>= 1.3.0),
-    readr (>= 2.1.0)
+shiny (>= 1.7.0),
+DT (>= 0.20.0),
+httr2 (>= 1.0.0),
+readxl (>= 1.4.0),
+writexl (>= 1.4.0),
+shinythemes (>= 1.2.0),
+dplyr (>= 1.1.0),
+tidyr (>= 1.3.0),
+readr (>= 2.1.0)
 Suggests:
-    testthat (>= 3.0.0),
-    knitr,
-    rmarkdown,
-    tidyverse (>= 2.0.0)
+testthat (>= 3.0.0),
+knitr,
+rmarkdown,
+tidyverse (>= 2.0.0)
 VignetteBuilder: knitr
 URL: https://github.com/guscherer/r-u-ok
 BugReports: https://github.com/guscherer/r-u-ok/issues

@@ -13,6 +13,10 @@ logs/security/
 # R Specific Files
 # ===========================
 
+# Environment variables and secrets
+.env
+.Renviron
+
 # R History and Session Data
 .Rhistory
 .RData

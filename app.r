@@ -6,15 +6,17 @@ library(httr2)
 library(writexl)
 library(shinythemes)
 
-# --- CONFIGURAÇÃO DA API GLM-4 (Zhipu AI) ---
-# Coloque sua chave aqui ou, idealmente, use Sys.getenv("ZHIPU_API_KEY") para segurança
-API_KEY <- "SUA_CHAVE_AQUI" 
+# --- CONFIGURAÇÃO SEGURA DA APLICAÇÃO ---
+# Carrega configurações de variáveis de ambiente
+source("R/config.R")
+config <- load_config()
+API_KEY <- config$api_key
 
 # Função que chama a IA
 consultar_glm4 <- function(esquemas_texto, pedido_usuario, chave_api) {
   
   # Define o endpoint oficial da Zhipu AI (Compatível com OpenAI)
-  url_base <- "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+  url_base <- config$api_url
   
   # Prompt do Sistema: Define a personalidade e regras estritas para a IA
   system_prompt <- "Você é um especialista sênior em R e tidyverse.

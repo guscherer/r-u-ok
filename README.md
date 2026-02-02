@@ -111,27 +111,56 @@ Isso irá:
 
 ⚠️ **CRÍTICO - NÃO IGNORE ESTE PASSO**
 
-Crie um arquivo `.Renviron` na raiz do projeto:
+A aplicação requer uma chave API da Zhipu AI para funcionar. Configure de uma das seguintes formas:
+
+#### Opção 1: Arquivo .env (Recomendado para desenvolvimento)
 
 ```bash
-# Windows PowerShell
-New-Item -Path .Renviron -ItemType File
+# Copie o template
+cp .env.example .env
 
+# Edite .env e adicione sua chave real
+# Windows: notepad .env
+# Linux/Mac: nano .env
+```
+
+Conteúdo do `.env`:
+```bash
+ZHIPU_API_KEY=sua-chave-aqui
+```
+
+#### Opção 2: Variável de Ambiente do Sistema
+
+```bash
 # Linux/Mac
-touch .Renviron
+export ZHIPU_API_KEY='sua-chave-aqui'
+
+# Windows PowerShell
+$env:ZHIPU_API_KEY='sua-chave-aqui'
+
+# Windows CMD
+set ZHIPU_API_KEY=sua-chave-aqui
 ```
 
-Adicione sua chave API:
+#### Opção 3: Arquivo .Renviron
 
+```bash
+# Criar .Renviron
+echo "ZHIPU_API_KEY=sua-chave-aqui" > .Renviron
 ```
-ZHIPU_API_KEY=sua_chave_api_aqui
-```
+
+**Obter Chave API:**
+1. Acesse https://open.bigmodel.cn/
+2. Crie uma conta (requer verificação)
+3. Acesse "API Keys" no dashboard
+4. Gere uma nova chave
 
 **IMPORTANTE**:
 
-- O arquivo `.Renviron` está no `.gitignore` para evitar exposição acidental
-- NUNCA commite chaves API no Git
-- Reinicie o R após criar o arquivo
+- ✅ Arquivos `.env` e `.Renviron` estão no `.gitignore` 
+- ❌ NUNCA commite chaves API no Git
+- 🔒 Reinicie o R após configurar
+- ⚠️ O app NÃO iniciará sem a chave configurada
 
 ### Passo 4: Executar o App
 
@@ -141,6 +170,8 @@ shiny::runApp("app.r")
 ```
 
 O app abrirá automaticamente no navegador padrão (geralmente `http://127.0.0.1:XXXX`).
+
+**Primeira execução**: O app validará sua configuração e exibirá mensagem de erro detalhada se a chave não estiver configurada.
 
 ---
 
