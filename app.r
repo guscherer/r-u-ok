@@ -17,6 +17,8 @@ API_KEY <- config$api_key
 source("R/config_upload.R")
 # Carrega funções de validação
 source("R/file_validation.R")
+# Carrega funções de logging
+source("R/file_logging.R")
 
 # Configurar limite de tamanho de requisição do Shiny
 shiny::shinyOptions(
@@ -160,18 +162,35 @@ server <- function(input, output) {
           type = "error",
           duration = 5
         )
+        # Log falha
+        log_file_upload(
+          filename = nome_arquivo,
+          size_mb = NA,
+          file_type = NA,
+          validation_passed = FALSE,
+          error_message = ext_result$error
+        )
         next  # Pular este arquivo
       }
       
       # ========== VALIDAÇÃO 2: Tamanho ==========
       file_size <- file.size(caminho)
+      file_size_mb <- round(file_size / (1024 * 1024), 2)
+      
       if (!validate_file_size(file_size, MAX_FILE_SIZE_MB)) {
-        size_mb <- round(file_size / (1024 * 1024), 2)
         shiny::showNotification(
           paste0("❌ ", nome_arquivo, ": Arquivo muito grande (", 
-                 size_mb, " MB > ", MAX_FILE_SIZE_MB, " MB)"),
+                 file_size_mb, " MB > ", MAX_FILE_SIZE_MB, " MB)"),
           type = "error",
           duration = 5
+        )
+        # Log falha
+        log_file_upload(
+          filename = nome_arquivo,
+          size_mb = file_size_mb,
+          file_type = NA,
+          validation_passed = FALSE,
+          error_message = "Arquivo excede tamanho máximo permitido"
         )
         next
       }
@@ -184,6 +203,14 @@ server <- function(input, output) {
           type = "error",
           duration = 5
         )
+        # Log falha
+        log_file_upload(
+          filename = nome_arquivo,
+          size_mb = file_size_mb,
+          file_type = NA,
+          validation_passed = FALSE,
+          error_message = type_result$error
+        )
         next
       }
       
@@ -195,6 +222,14 @@ server <- function(input, output) {
           paste0("❌ ", nome_arquivo, ": Erro ao processar arquivo"),
           type = "error",
           duration = 5
+        )
+        # Log falha
+        log_file_upload(
+          filename = nome_arquivo,
+          size_mb = file_size_mb,
+          file_type = type_result$detected_type,
+          validation_passed = FALSE,
+          error_message = "Erro ao processar arquivo"
         )
         next
       }
@@ -214,6 +249,15 @@ server <- function(input, output) {
       # Se passou em todas as validações
       arquivos_temp[[i]] <- df
       nomes_temp <- c(nomes_temp, nome_arquivo)
+      
+      # Log sucesso
+      log_file_upload(
+        filename = nome_arquivo,
+        size_mb = file_size_mb,
+        file_type = type_result$detected_type,
+        validation_passed = TRUE,
+        error_message = NULL
+      )
       
       # Mensagem de sucesso
       shiny::showNotification(
