@@ -1,0 +1,12 @@
+library/
+local/
+cellar/
+lock/
+python/
+sandbox/
+staging/
+*
+!*/
+!.gitignore
+!settings.dcf
+!activate.R

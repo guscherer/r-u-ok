@@ -8,3 +8,43 @@
 .worktrees/
 .security-key
 logs/security/
+
+# ===========================
+# R Specific Files
+# ===========================
+
+# R History and Session Data
+.Rhistory
+.RData
+.Ruserdata
+
+# RStudio Files
+.Rproj.user/
+
+# ===========================
+# renv Files
+# ===========================
+
+# renv library (packages are tracked via renv.lock)
+renv/library/
+
+# renv local state
+renv/local/
+
+# renv package cache
+renv/cellar/
+
+# Keep renv.lock, .Rprofile, renv/activate.R, renv/settings.dcf
+
+# ===========================
+# R Development Files
+# ===========================
+
+# knitr/rmarkdown cache
+*_cache/
+*_files/
+
+# Rendered outputs (root level only)
+/*.html
+/*.pdf
+/*.tex
