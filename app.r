@@ -21,6 +21,8 @@ source("R/file_validation.R")
 source("R/file_logging.R")
 # Carrega funções de limpeza automática
 source("R/cleanup_scheduler.R")
+# Carrega funções de validação de input (Task 026)
+source("R/input_validation.R")
 
 # Configurar limite de tamanho de requisição do Shiny
 shiny::shinyOptions(
@@ -293,6 +295,42 @@ server <- function(input, output, session) {
   observeEvent(input$executar, {
     req(dados_carregados$lista, input$prompt)
     
+    # ========== TASK 026: VALIDAÇÃO DE INPUT ==========
+    # Validar prompt do usuário (injeção, tamanho, etc)
+    validation_result <- validate_user_prompt(
+      input$prompt,
+      session_id = session$ns(NULL)
+    )
+    
+    if (!validation_result$is_valid) {
+      shiny::showNotification(
+        paste0("❌ Entrada inválida: ", validation_result$error_message),
+        type = "error",
+        duration = 5
+      )
+      log_security_event(
+        session$ns(NULL),
+        "invalid_prompt",
+        "warning",
+        validation_result$error_message
+      )
+      return()
+    }
+    
+    # Avisos não-bloqueadores
+    if (!is.null(validation_result$warnings)) {
+      for (warning_msg in validation_result$warnings) {
+        shiny::showNotification(
+          paste0("⚠️ ", warning_msg),
+          type = "warning",
+          duration = 3
+        )
+      }
+    }
+    
+    # Usar prompt sanitizado
+    prompt_sanitizado <- validation_result$sanitized_prompt
+    
     # Prepara o "schema" (apenas nomes das colunas) para enviar à IA
     esquemas <- sapply(seq_along(dados_carregados$lista), function(i) {
       cols <- paste(names(dados_carregados$lista[[i]]), collapse = ", ")
@@ -302,11 +340,17 @@ server <- function(input, output, session) {
     
     withProgress(message = 'Consultando GLM-4...', detail = 'Escrevendo código R...', {
       
-      # A: Chama a API
+      # A: Chama a API com prompt sanitizado
       codigo <- tryCatch({
-        consultar_glm4(esquemas_texto, input$prompt, API_KEY)
+        consultar_glm4(esquemas_texto, prompt_sanitizado, API_KEY)
       }, error = function(e) {
         showNotification(paste("Erro na API:", e$message), type = "error")
+        log_security_event(
+          session$ns(NULL),
+          "api_error",
+          "warning",
+          e$message
+        )
         return(NULL)
       })
       
@@ -326,11 +370,25 @@ server <- function(input, output, session) {
         if(exists("resultado", envir = env_execucao)) {
           resultado_analise(env_execucao$resultado)
           showNotification("Análise concluída com sucesso!", type = "message")
+          
+          # Log sucesso
+          log_security_event(
+            session$ns(NULL),
+            "code_execution_success",
+            "info",
+            paste0("Análise executada em ", nchar(codigo), " caracteres de código")
+          )
         } else {
           showNotification("A IA gerou código, mas não criou o objeto 'resultado'.", type = "warning")
         }
       }, error = function(e) {
         showNotification(paste("Erro ao executar código R gerado:", e$message), type = "error")
+        log_security_event(
+          session$ns(NULL),
+          "code_execution_error",
+          "warning",
+          e$message
+        )
       })
     })
   })
