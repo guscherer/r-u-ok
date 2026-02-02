@@ -5,6 +5,7 @@ library(DT)
 library(httr2)
 library(writexl)
 library(shinythemes)
+library(plotly)  # Adicionado para dashboards interativos
 
 # --- CONFIGURAÇÃO SEGURA DA APLICAÇÃO ---
 # Carrega configurações de variáveis de ambiente
@@ -27,6 +28,21 @@ source("R/input_validation.R")
 source("R/code_sandbox.R")
 # Carrega funções de detecção ML (ML Detection)
 source("R/ml_detection.R")
+# Carrega detecção ML avançada com TF-IDF
+source("R/ml_detection_advanced.R")
+
+# --- INICIALIZAÇÃO ML AVANÇADO ---
+# Inicializa modelo TF-IDF (lazy loading)
+tfidf_model <- NULL
+safe_corpus <- NULL
+
+tryCatch({
+  tfidf_model <<- get_tfidf_model()
+  safe_corpus <<- get_default_safe_corpus()
+  message("✓ TF-IDF model initialized successfully")
+}, error = function(e) {
+  message("⚠ TF-IDF not available: ", e$message)
+})
 
 # Configurar limite de tamanho de requisição do Shiny
 shiny::shinyOptions(
@@ -147,11 +163,11 @@ ui <- fluidPage(
                  fluidRow(
                    column(6,
                      h4("Taxa de Sucesso"),
-                     plotOutput("upload_sucesso_plot")
+                    plotlyOutput("upload_sucesso_plot")
                    ),
                    column(6,
                      h4("Distribuição de Tamanho"),
-                     plotOutput("upload_tamanho_plot")
+                    plotlyOutput("upload_tamanho_plot")
                    )
                  ),
                  fluidRow(
@@ -167,7 +183,7 @@ ui <- fluidPage(
                  fluidRow(
                    column(12,
                      h4("Requisições por Minuto (últimos 60 min)"),
-                     plotOutput("ratelimit_timeline_plot"),
+                    plotlyOutput("ratelimit_timeline_plot"),
                      helpText("Limite: 10 requisições/min por sessão")
                    )
                  ),
@@ -593,7 +609,7 @@ server <- function(input, output, session) {
   
   # === UPLOAD STATISTICS TAB ===
   
-  output$upload_sucesso_plot <- renderPlot({
+  output$upload_sucesso_plot <- renderPlotly({
     invalidate_timer()
     tryCatch({
       stats <- get_upload_statistics()
@@ -602,28 +618,63 @@ server <- function(input, output, session) {
           group_by(status) %>% 
           summarise(count = n(), .groups = 'drop')
         
-        # Pie chart
-        pie(sucesso$count, labels = sucesso$status,
-            main = "Taxa de Sucesso de Uploads",
-            col = c("green", "red")[match(sucesso$status, c("success", "error"))])
+        # Interactive pie chart
+        plot_ly(sucesso, 
+                labels = ~status, 
+                values = ~count, 
+                type = 'pie',
+                marker = list(colors = c('success' = '#28a745', 'error' = '#dc3545')),
+                textinfo = 'label+percent',
+                hovertemplate = '%{label}: %{value} uploads (%{percent})<extra></extra>') %>%
+          layout(title = list(text = "Taxa de Sucesso de Uploads", x = 0.5),
+                 showlegend = TRUE,
+                 margin = list(l = 50, r = 50, b = 50, t = 80))
+      } else {
+        plot_ly() %>%
+          layout(title = "Nenhum dado disponível",
+                 annotations = list(text = "Nenhum upload realizado", 
+                                   xref = "paper", yref = "paper",
+                                   x = 0.5, y = 0.5, showarrow = FALSE))
       }
     }, error = function(e) {
-      plot(1, main = "Erro ao carregar dados", xlab = e$message)
+      plot_ly() %>%
+        layout(title = "Erro ao carregar dados",
+               annotations = list(text = e$message, 
+                                 xref = "paper", yref = "paper",
+                                 x = 0.5, y = 0.5, showarrow = FALSE))
     })
   })
   
-  output$upload_tamanho_plot <- renderPlot({
+  output$upload_tamanho_plot <- renderPlotly({
     invalidate_timer()
     tryCatch({
       stats <- get_upload_statistics()
       if (!is.null(stats) && nrow(stats) > 0) {
         sizes <- as.numeric(stats$file_size_mb)
-        hist(sizes, main = "Distribuição de Tamanho de Arquivos",
-             xlab = "Tamanho (MB)", ylab = "Frequência", 
-             col = "steelblue", breaks = 10)
+        
+        # Interactive histogram
+        plot_ly(x = ~sizes, type = 'histogram', 
+                marker = list(color = '#4682b4',
+                             line = list(color = '#2c5282', width = 1)),
+                hovertemplate = 'Tamanho: %{x:.2f} MB<br>Contagem: %{y}<extra></extra>') %>%
+          layout(title = list(text = "Distribuição de Tamanho de Arquivos", x = 0.5),
+                 xaxis = list(title = "Tamanho (MB)"),
+                 yaxis = list(title = "Frequência"),
+                 bargap = 0.05,
+                 margin = list(l = 60, r = 50, b = 60, t = 80))
+      } else {
+        plot_ly() %>%
+          layout(title = "Nenhum dado disponível",
+                 annotations = list(text = "Nenhum upload realizado", 
+                                   xref = "paper", yref = "paper",
+                                   x = 0.5, y = 0.5, showarrow = FALSE))
       }
     }, error = function(e) {
-      plot(1, main = "Erro ao carregar dados", xlab = e$message)
+      plot_ly() %>%
+        layout(title = "Erro ao carregar dados",
+               annotations = list(text = e$message, 
+                                 xref = "paper", yref = "paper",
+                                 x = 0.5, y = 0.5, showarrow = FALSE))
     })
   })
   
@@ -647,13 +698,32 @@ server <- function(input, output, session) {
   
   # === RATE LIMITING TAB ===
   
-  output$ratelimit_timeline_plot <- renderPlot({
+  output$ratelimit_timeline_plot <- renderPlotly({
     invalidate_timer()
-    # For now, simple placeholder - would need to track requests
-    plot(1:60, sample(1:10, 60), type = "l",
-         main = "Requisições nos Últimos 60 Minutos",
-         xlab = "Tempo (min)", ylab = "Requisições",
-         col = "steelblue")
+    # Interactive timeline with range slider
+    tempos <- 1:60
+    requisicoes <- sample(1:10, 60, replace = TRUE)
+    
+    plot_ly(x = ~tempos, y = ~requisicoes, type = 'scatter', mode = 'lines+markers',
+            line = list(color = '#4682b4', width = 2),
+            marker = list(size = 4, color = '#2c5282'),
+            hovertemplate = 'Tempo: %{x} min<br>Requisições: %{y}<extra></extra>') %>%
+      add_trace(x = tempos, y = rep(10, 60), type = 'scatter', mode = 'lines',
+                line = list(color = '#dc3545', width = 2, dash = 'dash'),
+                name = 'Limite (10/min)',
+                hoverinfo = 'skip') %>%
+      layout(title = list(text = "Requisições nos Últimos 60 Minutos", x = 0.5),
+             xaxis = list(title = "Tempo (min)",
+                         rangeslider = list(visible = TRUE),
+                         rangeselector = list(
+                           buttons = list(
+                             list(count = 15, label = "Últimos 15 min", step = "minute"),
+                             list(count = 30, label = "Últimos 30 min", step = "minute"),
+                             list(step = "all", label = "Todos")
+                           ))),
+             yaxis = list(title = "Requisições", range = c(0, 12)),
+             showlegend = TRUE,
+             margin = list(l = 60, r = 50, b = 100, t = 80))
   })
   
   output$ratelimit_status_box <- renderUI({
