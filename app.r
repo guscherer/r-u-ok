@@ -23,6 +23,8 @@ source("R/file_logging.R")
 source("R/cleanup_scheduler.R")
 # Carrega funções de validação de input (Task 026)
 source("R/input_validation.R")
+# Carrega funções de sandbox seguro (Task 016)
+source("R/code_sandbox.R")
 
 # Configurar limite de tamanho de requisição do Shiny
 shiny::shinyOptions(
@@ -357,18 +359,25 @@ server <- function(input, output, session) {
       req(codigo)
       codigo_gerado(codigo)
       
-      # B: Executa o código (Eval)
-      # Ambiente isolado para execução
-      env_execucao <- new.env()
-      env_execucao$lista_dados <- dados_carregados$lista
-      env_execucao$library(dplyr)
-      env_execucao$library(tidyr)
+      # B: Executa o código em sandbox seguro (Task 016)
+      # Cria ambiente isolado com funções permitidas apenas
+      sandbox_env <- create_sandbox_env(
+        data_list = dados_carregados$lista,
+        whitelist = get_allowed_functions(),
+        max_memory_mb = 500
+      )
       
-      tryCatch({
-        eval(parse(text = codigo), envir = env_execucao)
-        
-        if(exists("resultado", envir = env_execucao)) {
-          resultado_analise(env_execucao$resultado)
+      # Executa código com timeout e validação de segurança
+      exec_result <- execute_code_safely(
+        code = codigo,
+        sandbox = sandbox_env,
+        timeout_seconds = 60,
+        max_memory_mb = 500
+      )
+      
+      if (exec_result$success) {
+        if (!is.null(exec_result$resultado)) {
+          resultado_analise(exec_result$resultado)
           showNotification("Análise concluída com sucesso!", type = "message")
           
           # Log sucesso
@@ -376,18 +385,41 @@ server <- function(input, output, session) {
             session$ns(NULL),
             "code_execution_success",
             "info",
-            paste0("Análise executada em ", nchar(codigo), " caracteres de código")
+            paste0(
+              "Análise segura executada em ",
+              nchar(codigo),
+              " caracteres | Tempo: ",
+              round(exec_result$duration_seconds, 2),
+              "s"
+            )
           )
         } else {
-          showNotification("A IA gerou código, mas não criou o objeto 'resultado'.", type = "warning")
+          showNotification(
+            "A IA gerou código, mas não criou o objeto 'resultado'.",
+            type = "warning"
+          )
+          log_security_event(
+            session$ns(NULL),
+            "code_execution_missing_resultado",
+            "warning",
+            "Código executou sem criar 'resultado'"
+          )
         }
-      }, error = function(e) {
-        showNotification(paste("Erro ao executar código R gerado:", e$message), type = "error")
+      } else {
+        showNotification(
+          paste("Erro ao executar código R gerado:", exec_result$error),
+          type = "error"
+        )
         log_security_event(
           session$ns(NULL),
           "code_execution_error",
           "warning",
-          e$message
+          paste(
+            "Erro:",
+            exec_result$error,
+            "| Warnings:",
+            paste(exec_result$warnings, collapse = " | ")
+          )
         )
       })
     })
