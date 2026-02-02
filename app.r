@@ -19,6 +19,8 @@ source("R/config_upload.R")
 source("R/file_validation.R")
 # Carrega funções de logging
 source("R/file_logging.R")
+# Carrega funções de limpeza automática
+source("R/cleanup_scheduler.R")
 
 # Configurar limite de tamanho de requisição do Shiny
 shiny::shinyOptions(
@@ -127,7 +129,10 @@ ui <- fluidPage(
 )
 
 # --- SERVIDOR (SERVER) ---
-server <- function(input, output) {
+server <- function(input, output, session) {
+  
+  # Inicializar scheduler de limpeza automática
+  init_cleanup_scheduler(session, interval_minutes = 60)
   
   # Variáveis Reativas para armazenar estado
   dados_carregados <- reactiveValues(lista = list(), nomes = NULL)
