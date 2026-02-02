@@ -12,6 +12,17 @@ source("R/config.R")
 config <- load_config()
 API_KEY <- config$api_key
 
+# --- CONFIGURAÇÕES DE SEGURANÇA DE UPLOAD ---
+# Carrega constantes e limites de upload
+source("R/config_upload.R")
+# Carrega funções de validação
+source("R/file_validation.R")
+
+# Configurar limite de tamanho de requisição do Shiny
+shiny::shinyOptions(
+  shiny.maxRequestSize = MAX_REQUEST_SIZE_BYTES
+)
+
 # Função que chama a IA
 consultar_glm4 <- function(esquemas_texto, pedido_usuario, chave_api) {
   
@@ -121,9 +132,18 @@ server <- function(input, output) {
   resultado_analise <- reactiveVal(NULL)
   codigo_gerado <- reactiveVal(NULL)
   
-  # 1. Leitura dos Arquivos
+  # 1. Leitura dos Arquivos COM VALIDAÇÃO
   observeEvent(input$arquivos, {
     req(input$arquivos)
+    
+    # Validar número de arquivos
+    if (nrow(input$arquivos) > MAX_FILES_PER_UPLOAD) {
+      shiny::showNotification(
+        paste0("Máximo de ", MAX_FILES_PER_UPLOAD, " arquivos permitidos"),
+        type = "error"
+      )
+      return()
+    }
     
     arquivos_temp <- list()
     nomes_temp <- c()
@@ -131,17 +151,78 @@ server <- function(input, output) {
     for(i in 1:nrow(input$arquivos)) {
       caminho <- input$arquivos$datapath[i]
       nome_arquivo <- input$arquivos$name[i]
-      ext <- tools::file_ext(nome_arquivo)
       
-      df <- tryCatch({
-        if(ext == "csv") read_csv(caminho, show_col_types = FALSE)
-        else read_excel(caminho)
-      }, error = function(e) return(NULL))
-      
-      if(!is.null(df)) {
-        arquivos_temp[[i]] <- df
-        nomes_temp <- c(nomes_temp, nome_arquivo)
+      # ========== VALIDAÇÃO 1: Extensão ==========
+      ext_result <- validate_extension(nome_arquivo)
+      if (!ext_result$valid) {
+        shiny::showNotification(
+          paste0("❌ ", nome_arquivo, ": ", ext_result$error),
+          type = "error",
+          duration = 5
+        )
+        next  # Pular este arquivo
       }
+      
+      # ========== VALIDAÇÃO 2: Tamanho ==========
+      file_size <- file.size(caminho)
+      if (!validate_file_size(file_size, MAX_FILE_SIZE_MB)) {
+        size_mb <- round(file_size / (1024 * 1024), 2)
+        shiny::showNotification(
+          paste0("❌ ", nome_arquivo, ": Arquivo muito grande (", 
+                 size_mb, " MB > ", MAX_FILE_SIZE_MB, " MB)"),
+          type = "error",
+          duration = 5
+        )
+        next
+      }
+      
+      # ========== VALIDAÇÃO 3: Magic Bytes (Tipo Real) ==========
+      type_result <- validate_file_type(caminho)
+      if (!type_result$valid) {
+        shiny::showNotification(
+          paste0("❌ ", nome_arquivo, ": ", type_result$error),
+          type = "error",
+          duration = 5
+        )
+        next
+      }
+      
+      # ========== LEITURA COM SEGURANÇA ==========
+      df <- read_file_safely(caminho, type_result$detected_type)
+      
+      if(is.null(df)) {
+        shiny::showNotification(
+          paste0("❌ ", nome_arquivo, ": Erro ao processar arquivo"),
+          type = "error",
+          duration = 5
+        )
+        next
+      }
+      
+      # ========== VALIDAÇÃO 4: Estrutura ==========
+      structure_result <- validate_dataframe_structure(df)
+      if (!structure_result$valid) {
+        for (warning in structure_result$warnings) {
+          shiny::showNotification(
+            paste0("⚠️ ", nome_arquivo, ": ", warning),
+            type = "warning",
+            duration = 3
+          )
+        }
+      }
+      
+      # Se passou em todas as validações
+      arquivos_temp[[i]] <- df
+      nomes_temp <- c(nomes_temp, nome_arquivo)
+      
+      # Mensagem de sucesso
+      shiny::showNotification(
+        paste0("✓ ", nome_arquivo, " carregado (", 
+               structure_result$nrow, " linhas × ", 
+               structure_result$ncol, " colunas)"),
+        type = "message",
+        duration = 3
+      )
     }
     
     dados_carregados$lista <- arquivos_temp

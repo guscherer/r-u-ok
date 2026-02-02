@@ -125,6 +125,7 @@ cp .env.example .env
 ```
 
 Conteúdo do `.env`:
+
 ```bash
 ZHIPU_API_KEY=sua-chave-aqui
 ```
@@ -150,6 +151,7 @@ echo "ZHIPU_API_KEY=sua-chave-aqui" > .Renviron
 ```
 
 **Obter Chave API:**
+
 1. Acesse https://open.bigmodel.cn/
 2. Crie uma conta (requer verificação)
 3. Acesse "API Keys" no dashboard
@@ -157,7 +159,7 @@ echo "ZHIPU_API_KEY=sua-chave-aqui" > .Renviron
 
 **IMPORTANTE**:
 
-- ✅ Arquivos `.env` e `.Renviron` estão no `.gitignore` 
+- ✅ Arquivos `.env` e `.Renviron` estão no `.gitignore`
 - ❌ NUNCA commite chaves API no Git
 - 🔒 Reinicie o R após configurar
 - ⚠️ O app NÃO iniciará sem a chave configurada
